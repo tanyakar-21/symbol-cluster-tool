@@ -67,7 +67,7 @@
 
   .symbol-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 8px;
   }
 
@@ -407,6 +407,8 @@ const SYMBOL_DEFS = [
   { name: 'tilde',         label: '~', src: 'scans/tilde.png' },
   { name: 'equals',        label: '=', src: 'scans/equals.png' },
   { name: 'vee',           label: 'v', src: 'scans/vee.png' },
+  { name: 'circle',        label: 'O', generated: 'circle' },
+  { name: 'dash',          label: '—', generated: 'dash' },
 ];
 
 // Loaded symbol images + processed canvases
@@ -415,7 +417,7 @@ const SYMBOLS = [];
 // Process a scan image: extract alpha from darkness, create tintable texture
 function processSymbolImage(img) {
   const c = document.createElement('canvas');
-  const w = img.naturalWidth, h = img.naturalHeight;
+  const w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
   c.width = w; c.height = h;
   const ctx = c.getContext('2d');
   ctx.drawImage(img, 0, 0);
@@ -424,11 +426,24 @@ function processSymbolImage(img) {
 
   // Convert: dark pixels become opaque, light pixels become transparent
   // This preserves the grainy ink texture from the scans
+  // Use a threshold + curve to cleanly remove the paper background
   for (let i = 0; i < d.length; i += 4) {
-    const r = d[i], g = d[i+1], b = d[i+2];
+    const r = d[i], g = d[i+1], b = d[i+2], a = d[i+3];
     const brightness = (r + g + b) / 3;
-    // Invert: dark = opaque, light = transparent
-    const alpha = Math.max(0, Math.min(255, 255 - brightness));
+    // Map brightness to alpha with a steep curve:
+    // brightness > 200 = fully transparent (paper)
+    // brightness < 80 = fully opaque (ink)
+    // in between = smooth falloff preserving grain
+    let alpha;
+    if (brightness > 200) {
+      alpha = 0;
+    } else if (brightness < 80) {
+      alpha = 255;
+    } else {
+      alpha = Math.round(255 * (1 - (brightness - 80) / 120));
+    }
+    // Also respect original alpha (if PNG has transparency)
+    alpha = Math.round(alpha * (a / 255));
     d[i] = 255;   // R — will be tinted later
     d[i+1] = 255; // G
     d[i+2] = 255; // B
@@ -438,13 +453,67 @@ function processSymbolImage(img) {
   return c;
 }
 
+// Generate a scan-like grainy texture for programmatic symbols
+function generateSymbolTexture(type) {
+  const size = 400;
+  const c = document.createElement('canvas');
+  const ctx = c.getContext('2d');
+
+  if (type === 'circle') {
+    c.width = size; c.height = size;
+    // Draw solid circle
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(size/2, size/2, size * 0.42, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (type === 'dash') {
+    c.width = size; c.height = Math.round(size * 0.3);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(size * 0.05, c.height * 0.15, size * 0.9, c.height * 0.7);
+  }
+
+  // Add grainy ink texture to match scans
+  const imgData = ctx.getImageData(0, 0, c.width, c.height);
+  const d = imgData.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i+3] > 0) {
+      // Add speckle noise like real ink on paper
+      const noise = (Math.random() - 0.4) * 80;
+      const val = Math.min(255, Math.max(0, d[i] + noise));
+      d[i] = val; d[i+1] = val; d[i+2] = val;
+      // Randomly thin out edges for grain
+      if (d[i+3] < 200) {
+        d[i+3] = Math.random() > 0.3 ? d[i+3] : 0;
+      }
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+  return c;
+}
+
 async function loadSymbols() {
-  const promises = SYMBOL_DEFS.map(def => {
+  const promises = SYMBOL_DEFS.map((def, index) => {
+    if (def.generated) {
+      // Programmatic symbol with scan-like texture
+      const raw = generateSymbolTexture(def.generated);
+      const processed = processSymbolImage(raw);
+      return Promise.resolve({
+        index,
+        name: def.name,
+        label: def.label,
+        img: raw,
+        texture: processed,
+        w: raw.width,
+        h: raw.height,
+        aspect: raw.width / raw.height,
+      });
+    }
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
         const processed = processSymbolImage(img);
-        SYMBOLS.push({
+        resolve({
+          index,
           name: def.name,
           label: def.label,
           img: img,
@@ -453,13 +522,14 @@ async function loadSymbols() {
           h: img.naturalHeight,
           aspect: img.naturalWidth / img.naturalHeight,
         });
-        resolve();
       };
       img.onerror = reject;
       img.src = def.src;
     });
   });
-  await Promise.all(promises);
+  const results = await Promise.all(promises);
+  results.sort((a, b) => a.index - b.index);
+  results.forEach(sym => SYMBOLS.push(sym));
 }
 
 // ═══════════════════════════════════════════════════
@@ -822,10 +892,27 @@ function buildSymbolGrid() {
     btn.className = 'symbol-btn';
     btn.title = sym.name + ' (' + sym.label + ')';
 
-    const img = document.createElement('img');
-    img.src = 'scans/' + sym.name + '.png';
-    img.alt = sym.label;
-    btn.appendChild(img);
+    // Use scan file for file-based symbols, or render texture for generated ones
+    const def = SYMBOL_DEFS[SYMBOLS.indexOf(sym)];
+    if (def && def.src) {
+      const img = document.createElement('img');
+      img.src = def.src;
+      img.alt = sym.label;
+      btn.appendChild(img);
+    } else {
+      // Generated symbol — render thumbnail from its texture canvas
+      const thumbCanvas = document.createElement('canvas');
+      thumbCanvas.width = 48; thumbCanvas.height = 48;
+      const tctx = thumbCanvas.getContext('2d');
+      const scale = Math.min(44 / sym.w, 44 / sym.h);
+      const tw = sym.w * scale, th = sym.h * scale;
+      tctx.filter = 'invert(1) brightness(0.85)';
+      tctx.drawImage(sym.img, (48-tw)/2, (48-th)/2, tw, th);
+      thumbCanvas.style.width = '100%';
+      thumbCanvas.style.height = '100%';
+      thumbCanvas.style.objectFit = 'contain';
+      btn.appendChild(thumbCanvas);
+    }
 
     btn.addEventListener('click', () => {
       state.selectedSymbol = sym;
