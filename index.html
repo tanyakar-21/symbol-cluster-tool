@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Symbol Cluster Tool</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Space Mono', monospace;
+    background: #f5f2ed;
+    color: #1a1a1a;
+    min-height: 100vh;
+  }
+
+  .app { display: flex; height: 100vh; }
+
+  .sidebar {
+    width: 340px;
+    min-width: 340px;
+    background: #1a1a1a;
+    color: #e8e4df;
+    padding: 24px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .sidebar h1 {
+    font-size: 16px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    border-bottom: 1px solid #333;
+    padding-bottom: 12px;
+  }
+
+  .section {
+    border-bottom: 1px solid #333;
+    padding-bottom: 16px;
+  }
+
+  .section-title {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 12px;
+  }
+
+  .step-indicator {
+    display: inline-block;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: #333;
+    color: #888;
+    text-align: center;
+    line-height: 20px;
+    font-size: 10px;
+    margin-right: 6px;
+  }
+  .step-indicator.active { background: #e8e4df; color: #1a1a1a; }
+  .step-indicator.done { background: #4a9; color: #fff; }
+
+  .symbol-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+  }
+
+  .symbol-btn {
+    aspect-ratio: 1;
+    border: 2px solid #333;
+    background: #222;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    border-radius: 4px;
+    padding: 6px;
+    overflow: hidden;
+  }
+  .symbol-btn:hover { border-color: #e8e4df; background: #2a2a2a; }
+  .symbol-btn.selected { border-color: #e8e4df; background: #e8e4df; }
+  .symbol-btn img {
+    width: 100%; height: 100%;
+    object-fit: contain;
+    filter: invert(1) brightness(0.85);
+  }
+  .symbol-btn.selected img { filter: none; }
+
+  .control-group { margin-bottom: 12px; }
+  .control-group label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 6px;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    -webkit-appearance: none;
+    background: #333;
+    height: 4px;
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: #e8e4df;
+    cursor: pointer;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: 1px solid #444;
+    background: #222;
+    color: #e8e4df;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+    text-transform: uppercase;
+  }
+  .btn:hover { border-color: #e8e4df; }
+  .btn.primary { background: #e8e4df; color: #1a1a1a; border-color: #e8e4df; }
+  .btn.primary:hover { background: #fff; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .color-row { display: flex; gap: 8px; align-items: center; }
+  .color-swatch {
+    width: 28px; height: 28px;
+    border: 2px solid #444;
+    border-radius: 4px;
+    cursor: pointer;
+    overflow: hidden;
+    position: relative;
+  }
+  .color-swatch input[type="color"] {
+    position: absolute; top: -4px; left: -4px;
+    width: 36px; height: 36px;
+    border: none; cursor: pointer; opacity: 0;
+  }
+  .color-label { font-size: 10px; color: #666; }
+
+  .upload-area {
+    border: 2px dashed #444;
+    border-radius: 6px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .upload-area:hover { border-color: #888; }
+  .upload-area p { font-size: 11px; color: #666; }
+  .upload-area.has-file { border-style: solid; border-color: #4a9; }
+  .upload-area.has-file p { color: #4a9; }
+
+  .canvas-area {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    position: relative;
+    overflow: hidden;
+    background: #e8e4df;
+  }
+
+  .canvas-wrapper {
+    position: relative;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+  }
+
+  #previewCanvas { display: block; background: #fff; }
+
+  .aspect-btns { display: flex; gap: 6px; }
+  .aspect-btn {
+    padding: 4px 10px;
+    border: 1px solid #444;
+    background: #222;
+    color: #888;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .aspect-btn.active { border-color: #e8e4df; color: #e8e4df; }
+
+  .export-section { margin-top: auto; }
+
+  select {
+    width: 100%;
+    background: #222;
+    color: #e8e4df;
+    border: 1px solid #444;
+    padding: 6px 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    border-radius: 3px;
+  }
+
+  #mediaUpload { display: none; }
+
+  .sub-label {
+    font-size: 9px;
+    color: #555;
+    margin-top: -8px;
+    margin-bottom: 8px;
+  }
+
+  .loading-overlay {
+    position: fixed; inset: 0;
+    background: #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    color: #e8e4df;
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 2px;
+  }
+  .loading-overlay.hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="loading-overlay" id="loadingOverlay">LOADING SCANS...</div>
+
+<div class="app">
+  <div class="sidebar">
+    <h1>Symbol Cluster</h1>
+
+    <!-- Step 1 -->
+    <div class="section" id="step1">
+      <div class="section-title"><span class="step-indicator active" id="ind1">1</span> Choose Symbol</div>
+      <div class="symbol-grid" id="symbolGrid"></div>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="section" id="step2">
+      <div class="section-title"><span class="step-indicator" id="ind2">2</span> Cluster Settings</div>
+      <div class="control-group">
+        <label>Density</label>
+        <input type="range" id="density" min="20" max="500" value="150">
+      </div>
+      <div class="control-group">
+        <label>Min Size</label>
+        <input type="range" id="minSize" min="4" max="80" value="12">
+      </div>
+      <div class="control-group">
+        <label>Max Size</label>
+        <input type="range" id="maxSize" min="10" max="160" value="55">
+      </div>
+      <div class="control-group">
+        <label>Spread</label>
+        <input type="range" id="spread" min="10" max="100" value="70">
+      </div>
+      <div class="control-group">
+        <label>Size Variation</label>
+        <input type="range" id="sizeVariation" min="0" max="100" value="70">
+      </div>
+      <div class="control-group">
+        <label>Rotation Variation</label>
+        <input type="range" id="rotationVar" min="0" max="100" value="15">
+      </div>
+      <div class="control-group">
+        <label>Cluster Pattern</label>
+        <select id="clusterPattern">
+          <option value="organic">Organic Scatter</option>
+          <option value="grid">Grid w/ Variation</option>
+          <option value="radial">Radial Burst</option>
+          <option value="wave">Wave Flow</option>
+          <option value="noise">Perlin Noise</option>
+        </select>
+      </div>
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn" id="randomizeBtn">Randomize</button>
+        <button class="btn" id="newSeedBtn">New Seed</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Artful Effect -->
+    <div class="section" id="step3">
+      <div class="section-title"><span class="step-indicator" id="ind3">3</span> Artful Effect</div>
+      <div class="control-group">
+        <label>Ink Texture</label>
+        <p class="sub-label">Preserve scan's grainy ink texture</p>
+        <input type="range" id="inkTexture" min="0" max="100" value="80">
+      </div>
+      <div class="control-group">
+        <label>Edge Dissolve</label>
+        <p class="sub-label">Scatter particles beyond symbol edge</p>
+        <input type="range" id="edgeDissolve" min="0" max="100" value="30">
+      </div>
+      <div class="control-group">
+        <label>Ink Bleed</label>
+        <p class="sub-label">Soft glow around each symbol</p>
+        <input type="range" id="inkBleed" min="0" max="100" value="15">
+      </div>
+      <div class="control-group">
+        <label>Grain Overlay</label>
+        <p class="sub-label">Full-canvas paper texture</p>
+        <input type="range" id="grain" min="0" max="100" value="20">
+      </div>
+    </div>
+
+    <!-- Step 4: Colors -->
+    <div class="section" id="step4c">
+      <div class="section-title"><span class="step-indicator" id="ind4c">4</span> Colors</div>
+      <div class="color-row" style="margin-bottom:8px;">
+        <div class="color-swatch" id="bgSwatch" style="background:#1a7a3a;">
+          <input type="color" id="bgColor" value="#1a7a3a">
+        </div>
+        <span class="color-label">Background</span>
+      </div>
+      <div class="color-row">
+        <div class="color-swatch" id="symSwatch" style="background:#d4a0c0;">
+          <input type="color" id="symColor" value="#d4a0c0">
+        </div>
+        <span class="color-label">Symbol Tint</span>
+      </div>
+    </div>
+
+    <!-- Step 5: Media Mask -->
+    <div class="section" id="step5m">
+      <div class="section-title"><span class="step-indicator" id="ind5m">5</span> Media Mask</div>
+      <div class="upload-area" id="uploadArea">
+        <p>Drop image or video here<br>or click to browse</p>
+      </div>
+      <input type="file" id="mediaUpload" accept="image/*,video/*">
+      <div class="control-group" style="margin-top:10px;">
+        <label>Media Opacity</label>
+        <input type="range" id="mediaOpacity" min="0" max="100" value="100">
+      </div>
+      <div class="control-group">
+        <label>Media Scale</label>
+        <input type="range" id="mediaScale" min="50" max="200" value="100">
+      </div>
+      <div class="control-group">
+        <label>Media X Offset</label>
+        <input type="range" id="mediaX" min="-100" max="100" value="0">
+      </div>
+      <div class="control-group">
+        <label>Media Y Offset</label>
+        <input type="range" id="mediaY" min="-100" max="100" value="0">
+      </div>
+      <div class="btn-row" style="margin-top:6px;">
+        <button class="btn" id="clearMediaBtn">Clear Media</button>
+      </div>
+    </div>
+
+    <!-- Step 6: Canvas -->
+    <div class="section" id="step6">
+      <div class="section-title"><span class="step-indicator" id="ind6">6</span> Canvas</div>
+      <div class="control-group">
+        <label>Aspect Ratio</label>
+        <div class="aspect-btns">
+          <button class="aspect-btn active" data-ratio="4:3">4:3</button>
+          <button class="aspect-btn" data-ratio="16:9">16:9</button>
+          <button class="aspect-btn" data-ratio="1:1">1:1</button>
+          <button class="aspect-btn" data-ratio="9:16">9:16</button>
+          <button class="aspect-btn" data-ratio="3:4">3:4</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="export-section">
+      <div class="btn-row">
+        <button class="btn primary" id="exportBtn">Export PNG</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="canvas-area">
+    <div class="canvas-wrapper">
+      <canvas id="previewCanvas" width="800" height="600"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+// SCAN-BASED SYMBOLS
+// ═══════════════════════════════════════════════════
+const SYMBOL_DEFS = [
+  { name: 'bracket-right', label: ']', src: 'scans/bracket-right.png' },
+  { name: 'bracket-left',  label: '[', src: 'scans/bracket-left.png' },
+  { name: 'caret',         label: '^', src: 'scans/caret.png' },
+  { name: 'double-quote',  label: '"', src: 'scans/double-quote.png' },
+  { name: 'angle-left',    label: '<', src: 'scans/angle-left.png' },
+  { name: 'angle-right',   label: '>', src: 'scans/angle-right.png' },
+  { name: 'slash',         label: '/', src: 'scans/slash.png' },
+  { name: 'tilde',         label: '~', src: 'scans/tilde.png' },
+  { name: 'equals',        label: '=', src: 'scans/equals.png' },
+  { name: 'vee',           label: 'v', src: 'scans/vee.png' },
+];
+
+// Loaded symbol images + processed canvases
+const SYMBOLS = [];
+
+// Process a scan image: extract alpha from darkness, create tintable texture
+function processSymbolImage(img) {
+  const c = document.createElement('canvas');
+  const w = img.naturalWidth, h = img.naturalHeight;
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const d = imgData.data;
+
+  // Convert: dark pixels become opaque, light pixels become transparent
+  // This preserves the grainy ink texture from the scans
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i+1], b = d[i+2];
+    const brightness = (r + g + b) / 3;
+    // Invert: dark = opaque, light = transparent
+    const alpha = Math.max(0, Math.min(255, 255 - brightness));
+    d[i] = 255;   // R — will be tinted later
+    d[i+1] = 255; // G
+    d[i+2] = 255; // B
+    d[i+3] = alpha;
+  }
+  ctx.putImageData(imgData, 0, 0);
+  return c;
+}
+
+async function loadSymbols() {
+  const promises = SYMBOL_DEFS.map(def => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const processed = processSymbolImage(img);
+        SYMBOLS.push({
+          name: def.name,
+          label: def.label,
+          img: img,
+          texture: processed,
+          w: img.naturalWidth,
+          h: img.naturalHeight,
+          aspect: img.naturalWidth / img.naturalHeight,
+        });
+        resolve();
+      };
+      img.onerror = reject;
+      img.src = def.src;
+    });
+  });
+  await Promise.all(promises);
+}
+
+// ═══════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════
+let state = {
+  selectedSymbol: null,
+  density: 150,
+  minSize: 12,
+  maxSize: 55,
+  spread: 70,
+  sizeVariation: 70,
+  rotationVar: 15,
+  inkTexture: 80,
+  edgeDissolve: 30,
+  inkBleed: 15,
+  grain: 20,
+  clusterPattern: 'organic',
+  bgColor: '#1a7a3a',
+  symColor: '#d4a0c0',
+  aspectRatio: '4:3',
+  seed: Math.random() * 99999 | 0,
+  mediaFile: null,
+  mediaElement: null,
+  mediaOpacity: 100,
+  mediaScale: 100,
+  mediaX: 0,
+  mediaY: 0,
+  particles: []
+};
+
+// ═══════════════════════════════════════════════════
+// SEEDED RANDOM & NOISE
+// ═══════════════════════════════════════════════════
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function createNoise(seed) {
+  const rng = mulberry32(seed);
+  const perm = Array.from({length: 256}, (_, i) => i);
+  for (let i = 255; i > 0; i--) {
+    const j = (rng() * (i + 1)) | 0;
+    [perm[i], perm[j]] = [perm[j], perm[i]];
+  }
+  const p = [...perm, ...perm];
+  function fade(t) { return t*t*t*(t*(t*6-15)+10); }
+  function lerp(a, b, t) { return a + t*(b-a); }
+  function grad(hash, x, y) {
+    const h = hash & 3;
+    const u = h < 2 ? x : y, v = h < 2 ? y : x;
+    return ((h&1)?-u:u)+((h&2)?-v:v);
+  }
+  return function(x, y) {
+    const X = Math.floor(x)&255, Y = Math.floor(y)&255;
+    x -= Math.floor(x); y -= Math.floor(y);
+    const u = fade(x), v = fade(y);
+    const A = p[X]+Y, B = p[X+1]+Y;
+    return lerp(lerp(grad(p[A],x,y),grad(p[B],x-1,y),u), lerp(grad(p[A+1],x,y-1),grad(p[B+1],x-1,y-1),u), v);
+  };
+}
+
+// ═══════════════════════════════════════════════════
+// GENERATE CLUSTER POSITIONS
+// ═══════════════════════════════════════════════════
+function generateParticles() {
+  const canvas = document.getElementById('previewCanvas');
+  const w = canvas.width, h = canvas.height;
+  const rng = mulberry32(state.seed);
+  const count = state.density;
+  const spreadFactor = state.spread / 100;
+  const sizeVar = state.sizeVariation / 100;
+  const particles = [];
+  const noise = createNoise(state.seed);
+
+  for (let i = 0; i < count; i++) {
+    let x, y, size;
+    const baseSize = state.minSize + rng() * (state.maxSize - state.minSize);
+
+    switch (state.clusterPattern) {
+      case 'organic': {
+        const cx = w * (0.2 + rng() * 0.6);
+        const cy = h * (0.2 + rng() * 0.6);
+        const angle = rng() * Math.PI * 2;
+        const dist = (rng()+rng()+rng()) / 3 * w * 0.4 * spreadFactor;
+        x = cx + Math.cos(angle)*dist*(0.3+rng()*0.7);
+        y = cy + Math.sin(angle)*dist*(0.3+rng()*0.7);
+        const dc = Math.sqrt((x-w/2)**2+(y-h/2)**2)/(Math.max(w,h)*0.5);
+        size = baseSize * (1 - dc*sizeVar*0.6 + rng()*sizeVar*0.4);
+        break;
+      }
+      case 'grid': {
+        const cols = Math.ceil(Math.sqrt(count*w/h));
+        const rows = Math.ceil(count/cols);
+        const col = i%cols, row = (i/cols)|0;
+        const cellW = w/cols, cellH = h/rows;
+        x = cellW*(col+0.5)+(rng()-0.5)*cellW*spreadFactor*0.6;
+        y = cellH*(row+0.5)+(rng()-0.5)*cellH*spreadFactor*0.6;
+        size = baseSize*(0.6+rng()*sizeVar*0.8);
+        break;
+      }
+      case 'radial': {
+        const angle = rng()*Math.PI*2;
+        const dist = rng()*Math.min(w,h)*0.45*spreadFactor;
+        x = w/2+Math.cos(angle)*dist;
+        y = h/2+Math.sin(angle)*dist;
+        const nd = dist/(Math.min(w,h)*0.45);
+        size = baseSize*(1-nd*sizeVar*0.7+rng()*0.3);
+        break;
+      }
+      case 'wave': {
+        x = rng()*w;
+        const waveY = Math.sin(x/w*Math.PI*3+state.seed)*h*0.2*spreadFactor;
+        y = h/2+waveY+(rng()-0.5)*h*0.3*spreadFactor;
+        size = baseSize*(0.5+Math.abs(Math.sin(x/w*Math.PI*2))*sizeVar*0.5+rng()*0.3);
+        break;
+      }
+      case 'noise': {
+        x = rng()*w; y = rng()*h;
+        const n = noise(x*0.005,y*0.005);
+        if (n < (1-spreadFactor)*0.5) continue;
+        size = baseSize*(0.4+(n+1)*0.3*sizeVar+rng()*0.3);
+        break;
+      }
+    }
+
+    size = Math.max(state.minSize, Math.min(state.maxSize, size));
+    const rotation = (rng()-0.5)*Math.PI*2*(state.rotationVar/100);
+
+    if (x > -size && x < w+size && y > -size && y < h+size) {
+      particles.push({ x, y, size, rotation, seed: (rng()*99999)|0 });
+    }
+  }
+  state.particles = particles;
+}
+
+// ═══════════════════════════════════════════════════
+// TINTING — color the scan texture to the chosen hue
+// ═══════════════════════════════════════════════════
+const _tintCache = new Map();
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3), 16);
+  const g = parseInt(hex.slice(3,5), 16);
+  const b = parseInt(hex.slice(5,7), 16);
+  return [r, g, b];
+}
+
+function getTintedTexture(sym, color) {
+  const key = sym.name + '|' + color;
+  if (_tintCache.has(key)) return _tintCache.get(key);
+
+  const src = sym.texture;
+  const c = document.createElement('canvas');
+  c.width = src.width; c.height = src.height;
+  const ctx = c.getContext('2d');
+
+  // Draw the processed texture (white + alpha)
+  ctx.drawImage(src, 0, 0);
+
+  // Tint by multiplying with color
+  ctx.globalCompositeOperation = 'multiply';
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, c.width, c.height);
+
+  // Restore alpha from original
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.drawImage(src, 0, 0);
+
+  if (_tintCache.size > 30) _tintCache.clear();
+  _tintCache.set(key, c);
+  return c;
+}
+
+// ═══════════════════════════════════════════════════
+// DRAW SYMBOL — renders a scan-based symbol with effects
+// ═══════════════════════════════════════════════════
+function drawSymbol(ctx, p, sym, color, forMask) {
+  const tinted = forMask ? sym.texture : getTintedTexture(sym, color);
+  const inkTex = state.inkTexture / 100;
+  const bleed = state.inkBleed / 100;
+  const dissolve = state.edgeDissolve / 100;
+
+  // Calculate draw dimensions preserving aspect ratio
+  const drawH = p.size;
+  const drawW = drawH * sym.aspect;
+
+  ctx.save();
+  ctx.translate(p.x, p.y);
+  ctx.rotate(p.rotation);
+
+  // Ink bleed: soft shadow behind symbol
+  if (bleed > 0.02 && !forMask) {
+    ctx.shadowColor = color;
+    ctx.shadowBlur = p.size * bleed * 0.4;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+  }
+
+  if (inkTex > 0.1) {
+    // Draw the actual scanned texture — preserving the grainy analog quality
+    ctx.globalAlpha = 0.3 + inkTex * 0.7;
+    ctx.drawImage(tinted, -drawW/2, -drawH/2, drawW, drawH);
+  } else {
+    // Solid fill fallback: draw shape without texture
+    ctx.globalAlpha = 1;
+    ctx.drawImage(tinted, -drawW/2, -drawH/2, drawW, drawH);
+  }
+
+  // Edge dissolve: scatter small dots around the symbol boundary
+  if (dissolve > 0.02 && p.size > 8) {
+    ctx.shadowBlur = 0;
+    const rng = mulberry32(p.seed);
+    const numDots = Math.ceil(dissolve * p.size * 1.5);
+    const halfW = drawW / 2;
+    const halfH = drawH / 2;
+
+    for (let i = 0; i < numDots; i++) {
+      const angle = rng() * Math.PI * 2;
+      const dist = (0.8 + rng() * dissolve * 1.2);
+      const dx = Math.cos(angle) * halfW * dist;
+      const dy = Math.sin(angle) * halfH * dist;
+      const dotR = (0.5 + rng() * 1.5) * (p.size / 40);
+      const dotAlpha = (0.15 + rng() * 0.4) * dissolve;
+
+      ctx.globalAlpha = dotAlpha;
+      if (forMask) {
+        ctx.fillStyle = '#fff';
+      } else {
+        ctx.fillStyle = color;
+      }
+      ctx.beginPath();
+      ctx.arc(dx, dy, dotR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════
+// GRAIN OVERLAY
+// ═══════════════════════════════════════════════════
+function drawGrain(ctx, w, h, amount) {
+  if (amount < 1) return;
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const d = imgData.data;
+  const intensity = amount / 100 * 40;
+  for (let i = 0; i < d.length; i += 4) {
+    const noise = (Math.random() - 0.5) * intensity;
+    d[i] += noise;
+    d[i+1] += noise;
+    d[i+2] += noise;
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
+
+// ═══════════════════════════════════════════════════
+// MAIN DRAW
+// ═══════════════════════════════════════════════════
+function draw() {
+  const canvas = document.getElementById('previewCanvas');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+
+  ctx.fillStyle = state.bgColor;
+  ctx.fillRect(0, 0, w, h);
+
+  if (!state.selectedSymbol) {
+    ctx.fillStyle = '#ffffff44';
+    ctx.font = '16px Space Mono';
+    ctx.textAlign = 'center';
+    ctx.fillText('Select a symbol to begin', w/2, h/2);
+    return;
+  }
+
+  const sym = state.selectedSymbol;
+  const hasMedia = state.mediaElement != null;
+
+  if (hasMedia) {
+    const offMedia = document.createElement('canvas');
+    offMedia.width = w; offMedia.height = h;
+    const mctx = offMedia.getContext('2d');
+
+    const el = state.mediaElement;
+    const scale = state.mediaScale / 100;
+    const mw = (el.videoWidth||el.naturalWidth||el.width)*scale;
+    const mh = (el.videoHeight||el.naturalHeight||el.height)*scale;
+    const ox = (w-mw)/2+(state.mediaX/100)*w*0.5;
+    const oy = (h-mh)/2+(state.mediaY/100)*h*0.5;
+    mctx.drawImage(el, ox, oy, mw, mh);
+
+    // Create mask from symbols
+    const offMask = document.createElement('canvas');
+    offMask.width = w; offMask.height = h;
+    const maskCtx = offMask.getContext('2d');
+
+    state.particles.forEach(p => {
+      drawSymbol(maskCtx, p, sym, '#fff', true);
+    });
+
+    mctx.globalCompositeOperation = 'destination-in';
+    mctx.drawImage(offMask, 0, 0);
+
+    ctx.globalAlpha = state.mediaOpacity / 100;
+    ctx.drawImage(offMedia, 0, 0);
+    ctx.globalAlpha = 1;
+  } else {
+    state.particles.forEach(p => {
+      drawSymbol(ctx, p, sym, state.symColor, false);
+    });
+  }
+
+  if (state.grain > 0) {
+    drawGrain(ctx, w, h, state.grain);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// CANVAS SIZING
+// ═══════════════════════════════════════════════════
+function resizeCanvas() {
+  const canvas = document.getElementById('previewCanvas');
+  const area = document.querySelector('.canvas-area');
+  const maxW = area.clientWidth - 80;
+  const maxH = area.clientHeight - 80;
+  const [rw, rh] = state.aspectRatio.split(':').map(Number);
+  let w, h;
+  if (maxW/rw*rh <= maxH) { w = maxW; h = maxW/rw*rh; }
+  else { h = maxH; w = maxH/rh*rw; }
+  canvas.width = w; canvas.height = h;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+}
+
+let animFrame = null;
+function renderLoop() {
+  if (state.mediaElement && state.mediaElement.tagName === 'VIDEO') {
+    draw();
+    animFrame = requestAnimationFrame(renderLoop);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// SYMBOL GRID
+// ═══════════════════════════════════════════════════
+function buildSymbolGrid() {
+  const grid = document.getElementById('symbolGrid');
+  grid.innerHTML = '';
+
+  SYMBOLS.forEach(sym => {
+    const btn = document.createElement('button');
+    btn.className = 'symbol-btn';
+    btn.title = sym.name + ' (' + sym.label + ')';
+
+    const img = document.createElement('img');
+    img.src = 'scans/' + sym.name + '.png';
+    img.alt = sym.label;
+    btn.appendChild(img);
+
+    btn.addEventListener('click', () => {
+      state.selectedSymbol = sym;
+      _tintCache.clear();
+      document.querySelectorAll('.symbol-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      document.getElementById('ind1').className = 'step-indicator done';
+      document.getElementById('ind2').className = 'step-indicator active';
+      regenerate();
+    });
+    grid.appendChild(btn);
+  });
+}
+
+function regenerate() {
+  _tintCache.clear();
+  resizeCanvas();
+  generateParticles();
+  draw();
+}
+
+// ═══════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════
+async function init() {
+  await loadSymbols();
+  document.getElementById('loadingOverlay').classList.add('hidden');
+
+  buildSymbolGrid();
+
+  // Cluster sliders
+  ['density','minSize','maxSize','spread','sizeVariation','rotationVar'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => { state[id] = parseInt(el.value); regenerate(); });
+  });
+
+  // Artful effect sliders
+  ['inkTexture','edgeDissolve','inkBleed','grain'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => { state[id] = parseInt(el.value); _tintCache.clear(); draw(); });
+  });
+
+  // Media sliders
+  ['mediaOpacity','mediaScale','mediaX','mediaY'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => { state[id] = parseInt(el.value); draw(); });
+  });
+
+  document.getElementById('clusterPattern').addEventListener('change', e => {
+    state.clusterPattern = e.target.value; regenerate();
+  });
+
+  document.getElementById('bgColor').addEventListener('input', e => {
+    state.bgColor = e.target.value;
+    document.getElementById('bgSwatch').style.background = e.target.value;
+    draw();
+  });
+  document.getElementById('symColor').addEventListener('input', e => {
+    state.symColor = e.target.value;
+    document.getElementById('symSwatch').style.background = e.target.value;
+    _tintCache.clear();
+    draw();
+  });
+
+  document.getElementById('randomizeBtn').addEventListener('click', () => {
+    state.density = 20+Math.random()*480|0;
+    state.minSize = 4+Math.random()*30|0;
+    state.maxSize = state.minSize+10+Math.random()*70|0;
+    state.spread = 10+Math.random()*90|0;
+    state.sizeVariation = Math.random()*100|0;
+    state.rotationVar = Math.random()*100|0;
+    state.clusterPattern = ['organic','grid','radial','wave','noise'][Math.random()*5|0];
+    state.seed = Math.random()*99999|0;
+    ['density','minSize','maxSize','spread','sizeVariation','rotationVar'].forEach(id => {
+      document.getElementById(id).value = state[id];
+    });
+    document.getElementById('clusterPattern').value = state.clusterPattern;
+    regenerate();
+  });
+
+  document.getElementById('newSeedBtn').addEventListener('click', () => {
+    state.seed = Math.random()*99999|0; regenerate();
+  });
+
+  document.querySelectorAll('.aspect-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.aspect-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.aspectRatio = btn.dataset.ratio;
+      regenerate();
+    });
+  });
+
+  // Upload
+  const uploadArea = document.getElementById('uploadArea');
+  const fileInput = document.getElementById('mediaUpload');
+  uploadArea.addEventListener('click', () => fileInput.click());
+  uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.style.borderColor = '#e8e4df'; });
+  uploadArea.addEventListener('dragleave', () => { uploadArea.style.borderColor = '#444'; });
+  uploadArea.addEventListener('drop', e => {
+    e.preventDefault(); uploadArea.style.borderColor = '#444';
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', () => { if (fileInput.files.length) handleFile(fileInput.files[0]); });
+
+  document.getElementById('clearMediaBtn').addEventListener('click', () => {
+    state.mediaElement = null; state.mediaFile = null;
+    uploadArea.classList.remove('has-file');
+    uploadArea.querySelector('p').textContent = 'Drop image or video here\nor click to browse';
+    if (animFrame) cancelAnimationFrame(animFrame);
+    draw();
+  });
+
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    const canvas = document.getElementById('previewCanvas');
+    const link = document.createElement('a');
+    link.download = 'symbol-cluster.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+
+  window.addEventListener('resize', regenerate);
+  resizeCanvas();
+  draw();
+}
+
+function handleFile(file) {
+  const uploadArea = document.getElementById('uploadArea');
+  state.mediaFile = file;
+  if (file.type.startsWith('video/')) {
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(file);
+    video.muted = true; video.loop = true; video.playsInline = true;
+    video.addEventListener('loadeddata', () => {
+      state.mediaElement = video;
+      video.play();
+      uploadArea.classList.add('has-file');
+      uploadArea.querySelector('p').textContent = file.name;
+      draw(); renderLoop();
+    });
+  } else {
+    const img = new Image();
+    img.onload = () => {
+      state.mediaElement = img;
+      uploadArea.classList.add('has-file');
+      uploadArea.querySelector('p').textContent = file.name;
+      draw();
+    };
+    img.src = URL.createObjectURL(file);
+  }
+}
+
+init();
+</script>
+</body>
+</html>
