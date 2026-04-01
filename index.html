@@ -408,7 +408,7 @@ const SYMBOL_DEFS = [
   { name: 'equals',        label: '=', src: 'scans/equals.png' },
   { name: 'vee',           label: 'v', src: 'scans/vee.png' },
   { name: 'circle',        label: 'O', generated: 'circle' },
-  { name: 'dash',          label: '—', generated: 'dash' },
+  { name: 'square',        label: '■', generated: 'square' },
 ];
 
 // Loaded symbol images + processed canvases
@@ -466,10 +466,10 @@ function generateSymbolTexture(type) {
     ctx.beginPath();
     ctx.arc(size/2, size/2, size * 0.42, 0, Math.PI * 2);
     ctx.fill();
-  } else if (type === 'dash') {
-    c.width = size; c.height = Math.round(size * 0.3);
+  } else if (type === 'square') {
+    c.width = size; c.height = size;
     ctx.fillStyle = '#000';
-    ctx.fillRect(size * 0.05, c.height * 0.15, size * 0.9, c.height * 0.7);
+    ctx.fillRect(size * 0.08, size * 0.08, size * 0.84, size * 0.84);
   }
 
   // Add grainy ink texture to match scans
