@@ -185,9 +185,11 @@
   .canvas-wrapper {
     position: relative;
     box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+    border-radius: 12px;
+    overflow: hidden;
   }
 
-  #previewCanvas { display: block; background: #fff; }
+  #previewCanvas { display: block; background: #fff; border-radius: 12px; }
 
   .aspect-btns { display: flex; gap: 6px; }
   .aspect-btn {
@@ -241,7 +243,7 @@
     }
 
     .canvas-area {
-      padding: 16px;
+      padding: 24px;
       min-height: 50vh;
       position: sticky;
       top: 0;
