@@ -222,6 +222,102 @@
     margin-bottom: 8px;
   }
 
+  /* ─── Mobile ─── */
+  @media (max-width: 768px) {
+    .app {
+      flex-direction: column-reverse;
+      height: auto;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      width: 100%;
+      min-width: unset;
+      padding: 20px 16px;
+      max-height: none;
+      overflow-y: visible;
+    }
+
+    .canvas-area {
+      padding: 16px;
+      min-height: 50vh;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .canvas-wrapper {
+      width: 100%;
+    }
+
+    #previewCanvas {
+      width: 100% !important;
+      height: auto !important;
+    }
+
+    .symbol-grid {
+      grid-template-columns: repeat(6, 1fr);
+      gap: 6px;
+    }
+
+    .symbol-btn {
+      padding: 4px;
+      min-height: 44px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      width: 20px; height: 20px;
+    }
+
+    .btn {
+      padding: 10px 16px;
+      font-size: 12px;
+    }
+
+    .aspect-btns {
+      flex-wrap: wrap;
+    }
+
+    .aspect-btn {
+      padding: 6px 12px;
+      font-size: 11px;
+    }
+
+    .upload-area {
+      padding: 24px;
+    }
+
+    .color-swatch {
+      width: 36px; height: 36px;
+    }
+
+    .color-swatch input[type="color"] {
+      width: 44px; height: 44px;
+      top: -4px; left: -4px;
+    }
+
+    select {
+      padding: 10px 8px;
+      font-size: 12px;
+    }
+
+    .export-section {
+      margin-top: 8px;
+      padding-bottom: 24px;
+    }
+  }
+
+  /* Small phones */
+  @media (max-width: 380px) {
+    .symbol-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .sidebar {
+      padding: 16px 12px;
+    }
+  }
+
   .loading-overlay {
     position: fixed; inset: 0;
     background: #1a1a1a;
@@ -861,12 +957,15 @@ function draw() {
 function resizeCanvas() {
   const canvas = document.getElementById('previewCanvas');
   const area = document.querySelector('.canvas-area');
-  const maxW = area.clientWidth - 80;
-  const maxH = area.clientHeight - 80;
+  const isMobile = window.innerWidth <= 768;
+  const pad = isMobile ? 32 : 80;
+  const maxW = area.clientWidth - pad;
+  const maxH = isMobile ? (window.innerHeight * 0.48) : (area.clientHeight - pad);
   const [rw, rh] = state.aspectRatio.split(':').map(Number);
   let w, h;
   if (maxW/rw*rh <= maxH) { w = maxW; h = maxW/rw*rh; }
   else { h = maxH; w = maxH/rh*rw; }
+  w = Math.max(w, 100); h = Math.max(h, 100);
   canvas.width = w; canvas.height = h;
   canvas.style.width = w + 'px';
   canvas.style.height = h + 'px';
