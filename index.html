@@ -31,11 +31,13 @@
   }
 
   .sidebar h1 {
-    font-size: 16px;
-    letter-spacing: 2px;
+    font-size: 28px;
+    font-weight: 400;
+    letter-spacing: 3px;
     text-transform: uppercase;
     border-bottom: 1px solid #333;
-    padding-bottom: 12px;
+    padding-bottom: 16px;
+    color: #b0aba4;
   }
 
   .section {
@@ -354,12 +356,8 @@
         <input type="range" id="density" min="20" max="500" value="150">
       </div>
       <div class="control-group">
-        <label>Min Size</label>
-        <input type="range" id="minSize" min="4" max="80" value="12">
-      </div>
-      <div class="control-group">
-        <label>Max Size</label>
-        <input type="range" id="maxSize" min="10" max="160" value="55">
+        <label>Size</label>
+        <input type="range" id="symSize" min="4" max="160" value="35">
       </div>
       <div class="control-group">
         <label>Spread</label>
@@ -634,8 +632,7 @@ async function loadSymbols() {
 let state = {
   selectedSymbol: null,
   density: 150,
-  minSize: 12,
-  maxSize: 55,
+  symSize: 35,
   spread: 70,
   sizeVariation: 70,
   rotationVar: 15,
@@ -708,7 +705,9 @@ function generateParticles() {
 
   for (let i = 0; i < count; i++) {
     let x, y, size;
-    const baseSize = state.minSize + rng() * (state.maxSize - state.minSize);
+    const minS = Math.max(4, state.symSize * 0.3);
+    const maxS = state.symSize;
+    const baseSize = minS + rng() * (maxS - minS);
 
     switch (state.clusterPattern) {
       case 'organic': {
@@ -757,7 +756,7 @@ function generateParticles() {
       }
     }
 
-    size = Math.max(state.minSize, Math.min(state.maxSize, size));
+    size = Math.max(minS, Math.min(maxS, size));
     const rotation = (rng()-0.5)*Math.PI*2*(state.rotationVar/100);
 
     if (x > -size && x < w+size && y > -size && y < h+size) {
@@ -1043,7 +1042,7 @@ async function init() {
   buildSymbolGrid();
 
   // Cluster sliders
-  ['density','minSize','maxSize','spread','sizeVariation','rotationVar'].forEach(id => {
+  ['density','symSize','spread','sizeVariation','rotationVar'].forEach(id => {
     const el = document.getElementById(id);
     el.addEventListener('input', () => { state[id] = parseInt(el.value); regenerate(); });
   });
@@ -1078,14 +1077,13 @@ async function init() {
 
   document.getElementById('randomizeBtn').addEventListener('click', () => {
     state.density = 20+Math.random()*480|0;
-    state.minSize = 4+Math.random()*30|0;
-    state.maxSize = state.minSize+10+Math.random()*70|0;
+    state.symSize = 10+Math.random()*140|0;
     state.spread = 10+Math.random()*90|0;
     state.sizeVariation = Math.random()*100|0;
     state.rotationVar = Math.random()*100|0;
     state.clusterPattern = ['organic','grid','radial','wave','noise'][Math.random()*5|0];
     state.seed = Math.random()*99999|0;
-    ['density','minSize','maxSize','spread','sizeVariation','rotationVar'].forEach(id => {
+    ['density','symSize','spread','sizeVariation','rotationVar'].forEach(id => {
       document.getElementById(id).value = state[id];
     });
     document.getElementById('clusterPattern').value = state.clusterPattern;
