@@ -30,14 +30,29 @@
     gap: 20px;
   }
 
-  .sidebar h1 {
+  .sidebar .desktop-heading {
     font-size: 28px;
     font-weight: 400;
     letter-spacing: 3px;
+    line-height: 1.05;
     text-transform: uppercase;
     border-bottom: 1px solid #333;
     padding-bottom: 16px;
     color: #b0aba4;
+  }
+
+  .mobile-heading {
+    display: none;
+    font-family: 'Space Mono', monospace;
+    font-size: 24px;
+    font-weight: 400;
+    letter-spacing: 3px;
+    line-height: 1.05;
+    text-transform: uppercase;
+    color: #1a1a1a;
+    padding: 20px 20px 0 20px;
+    background: #e8e4df;
+    margin: 0;
   }
 
   .section {
@@ -93,7 +108,9 @@
     object-fit: contain;
     filter: invert(1) brightness(0.85);
   }
+  .symbol-btn img.generated-thumb { filter: none; }
   .symbol-btn.selected img { filter: none; }
+  .symbol-btn.selected img.generated-thumb { filter: brightness(0.15); }
 
   .control-group { margin-bottom: 12px; }
   .control-group label {
@@ -176,7 +193,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 40px;
+    padding: 24px;
     position: relative;
     overflow: hidden;
     background: #e8e4df;
@@ -229,9 +246,18 @@
   /* ─── Mobile ─── */
   @media (max-width: 768px) {
     .app {
-      flex-direction: column-reverse;
+      flex-direction: column;
       height: auto;
       min-height: 100vh;
+    }
+
+    .mobile-heading {
+      display: block;
+      order: -1;
+    }
+
+    .sidebar .desktop-heading {
+      display: none;
     }
 
     .sidebar {
@@ -240,18 +266,22 @@
       padding: 20px 16px;
       max-height: none;
       overflow-y: visible;
+      order: 3;
     }
 
     .canvas-area {
-      padding: 24px;
-      min-height: 50vh;
-      position: sticky;
-      top: 0;
-      z-index: 10;
+      padding: 20px;
+      min-height: auto;
+      aspect-ratio: 4/3;
+      order: 2;
     }
 
     .canvas-wrapper {
       width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     #previewCanvas {
@@ -341,8 +371,9 @@
 <div class="loading-overlay" id="loadingOverlay">LOADING SCANS...</div>
 
 <div class="app">
+  <h1 class="mobile-heading">Symbol Cluster</h1>
   <div class="sidebar">
-    <h1>Symbol Cluster</h1>
+    <h1 class="desktop-heading">Symbol Cluster</h1>
 
     <!-- Step 1 -->
     <div class="section" id="step1">
@@ -1000,18 +1031,26 @@ function buildSymbolGrid() {
       img.alt = sym.label;
       btn.appendChild(img);
     } else {
-      // Generated symbol — render thumbnail from its texture canvas
+      // Generated symbol — render white thumbnail on transparent bg
       const thumbCanvas = document.createElement('canvas');
       thumbCanvas.width = 48; thumbCanvas.height = 48;
       const tctx = thumbCanvas.getContext('2d');
       const scale = Math.min(44 / sym.w, 44 / sym.h);
       const tw = sym.w * scale, th = sym.h * scale;
-      tctx.filter = 'invert(1) brightness(0.85)';
-      tctx.drawImage(sym.img, (48-tw)/2, (48-th)/2, tw, th);
-      thumbCanvas.style.width = '100%';
-      thumbCanvas.style.height = '100%';
-      thumbCanvas.style.objectFit = 'contain';
-      btn.appendChild(thumbCanvas);
+      // Draw white version for dark background
+      tctx.fillStyle = '#d9d5cf';
+      if (sym.name === 'circle') {
+        tctx.beginPath();
+        tctx.arc(24, 24, tw * 0.4, 0, Math.PI * 2);
+        tctx.fill();
+      } else {
+        tctx.fillRect((48-tw)/2 + tw*0.08, (48-th)/2 + th*0.08, tw*0.84, th*0.84);
+      }
+      const img = document.createElement('img');
+      img.src = thumbCanvas.toDataURL();
+      img.alt = sym.label;
+      img.className = 'generated-thumb';
+      btn.appendChild(img);
     }
 
     btn.addEventListener('click', () => {
